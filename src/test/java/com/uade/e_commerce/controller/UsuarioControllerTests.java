@@ -14,6 +14,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import java.util.Map;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -86,5 +87,58 @@ class UsuarioControllerTests {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(cuerpo))
                 .andExpect(status().isConflict());
+    }
+
+    @Test
+    void iniciaSesionSinDevolverLaPassword() throws Exception {
+        Usuario guardado = usuarioRepository.save(new Usuario(
+                "Maria", "maria@example.com", passwordService.hashear("secreto")));
+
+        Map<String, String> datos = Map.of(
+                "email", "MARIA@example.com",
+                "password", "secreto");
+
+        mockMvc.perform(post("/api/users/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(datos)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(guardado.getId()))
+                .andExpect(jsonPath("$.nombre").value("Maria"))
+                .andExpect(jsonPath("$.email").value("maria@example.com"))
+                .andExpect(jsonPath("$.password").doesNotExist());
+    }
+
+    @Test
+    void rechazaCredencialesIncorrectas() throws Exception {
+        usuarioRepository.save(new Usuario(
+                "Pedro", "pedro@example.com", passwordService.hashear("correcta")));
+
+        Map<String, String> datos = Map.of(
+                "email", "pedro@example.com",
+                "password", "incorrecta");
+
+        mockMvc.perform(post("/api/users/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(datos)))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void obtieneUnUsuarioPorIdSinDevolverLaPassword() throws Exception {
+        Usuario guardado = usuarioRepository.save(new Usuario(
+                "Sofia", "sofia@example.com", passwordService.hashear("123456")));
+
+        mockMvc.perform(get("/api/users/{id}", guardado.getId()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(guardado.getId()))
+                .andExpect(jsonPath("$.nombre").value("Sofia"))
+                .andExpect(jsonPath("$.email").value("sofia@example.com"))
+                .andExpect(jsonPath("$.password").doesNotExist());
+    }
+
+    @Test
+    void respondeNotFoundSiElUsuarioNoExiste() throws Exception {
+        mockMvc.perform(get("/api/users/{id}", Long.MAX_VALUE))
+                .andExpect(status().isNotFound());
     }
 }

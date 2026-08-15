@@ -1,5 +1,6 @@
 package com.uade.e_commerce.service;
 
+import com.uade.e_commerce.dto.LoginUsuarioRequest;
 import com.uade.e_commerce.dto.RegistroUsuarioRequest;
 import com.uade.e_commerce.model.Usuario;
 import com.uade.e_commerce.repository.UsuarioRepository;
@@ -29,6 +30,26 @@ public class UsuarioService {
         return usuarioRepository.save(usuario);
     }
 
+    public Usuario iniciarSesion(LoginUsuarioRequest datos) {
+        if (datos == null || estaVacio(datos.email()) || estaVacio(datos.password())) {
+            throw new DatosInvalidosException();
+        }
+
+        Usuario usuario = usuarioRepository.findByEmailIgnoreCase(datos.email().trim())
+                .orElseThrow(CredencialesInvalidasException::new);
+
+        if (!passwordService.coincide(datos.password(), usuario.getPassword())) {
+            throw new CredencialesInvalidasException();
+        }
+
+        return usuario;
+    }
+
+    public Usuario obtenerPorId(Long id) {
+        return usuarioRepository.findById(id)
+                .orElseThrow(UsuarioNoEncontradoException::new);
+    }
+
     private void validarCampos(RegistroUsuarioRequest datos) {
         if (datos == null || estaVacio(datos.nombre()) || estaVacio(datos.email())
                 || estaVacio(datos.password())) {
@@ -44,5 +65,11 @@ public class UsuarioService {
     }
 
     public static class DatosInvalidosException extends RuntimeException {
+    }
+
+    public static class CredencialesInvalidasException extends RuntimeException {
+    }
+
+    public static class UsuarioNoEncontradoException extends RuntimeException {
     }
 }
